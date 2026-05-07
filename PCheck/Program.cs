@@ -1,17 +1,15 @@
 ﻿using PCheck;
 using Spectre.Console;
 
-var dnsList = new List<DNS>();
-var nextId = dnsList.Max(d => d.Id) + 1;
-
 try
 {
+    Tools.CheckFileExist();
     Main();
 }
 catch (Exception)
 {
-    AnsiConsole.WriteLine("Something went wrong returning to Menu...");
-    Thread.Sleep(5000);
+    AnsiConsole.MarkupLine("[bold red]Something went wrong press any key to return menu...");
+    Console.ReadKey();
     Main();
 }
 
@@ -20,6 +18,7 @@ void Main()
     while (true)
     {
         Console.Clear();
+        Tools.GetAllDns();
         var choice = AnsiConsole.Prompt(
             new SelectionPrompt<string>()
             .Title("[Yellow] Dns Management Panel[/]")
@@ -27,8 +26,7 @@ void Main()
             {
             "1.Add DNS",
             "2.Show All DNS",
-            "3.Edit A DNS",
-            "4.Ping DNS"
+            "3.Edit DNS",
             }));
 
         switch (choice[0])
@@ -36,15 +34,28 @@ void Main()
             case '1': AddDns(); break;
             case '2': ShowAllDns(); break;
             case '3': EditDns(); break;
-            case '4': PingAllDns(); break;
         }
     }
 }
 
-
-void PingAllDns()
+void AddDns()
 {
-    throw new NotImplementedException();
+    Console.Clear();
+    var newAddress = AnsiConsole.Ask<string>("[bold green]Add New DNS Address:(return Menu Press 'N')[/]");
+    if (newAddress.Trim().ToLower() == "n")
+        Main();
+    if (Tools.dnsList.Any(d => d.Address == newAddress))
+    {
+        AnsiConsole.MarkupLine("[yellow]Address Already Exists!");
+        Console.ReadKey();
+        AddDns();
+    }
+    var newTitle = AnsiConsole.Ask<string>("[bold green]Enter Title:[/]");
+    var newDNs = new DNS(Tools.nextId, newAddress, newTitle);
+    Tools.dnsList.Add(newDNs);
+    Tools.SaveToFile(newDNs);
+    AnsiConsole.MarkupLine("[yellow]DNS Added Successfully[/]");
+    Console.ReadKey();
 }
 
 void EditDns()
@@ -54,32 +65,33 @@ void EditDns()
 
 void ShowAllDns()
 {
-    var refDnsList = Tools.GetAllDnsFromFile();
-    dnsList = refDnsList;
+    Console.Clear();
+    AnsiConsole.MarkupLine("[bold yellow]Select DNS To Ping[/]");
+    if (!Tools.dnsList.Any())
+    {
+        AnsiConsole.MarkupLine("[bold yellow]DNS file is empty add DNS first![/]");
+        Console.ReadKey();
+        Main();
+    }
+    var tempList = new List<DNS>(Tools.dnsList);
+    var selectAllItem = new DNS(0, "", "Select All");
+    tempList.Insert(0, selectAllItem);
 
-    var table = new Table();
-    table.Border = TableBorder.Rounded;
-    table.AddColumns("[cyan]ID[/]", "[cyan]Title[/]", "[cyan]Address[/]");
+    var multiSelect = new MultiSelectionPrompt<DNS>()
+        .MoreChoicesText("[grey](move ↑/↓)[/]")
+        .InstructionsText("[grey](select:[green][[Space]][/] | Confirm:[green][[Enter]][/] | Select All:[green][[Ctrl+A]][/])[/]")
+        .AddChoices(tempList);
 
-    foreach (var dns in dnsList)
-        table.AddRow(dns.Id.ToString(), dns.Title, dns.Address);
+    var selectedDns = AnsiConsole.Prompt(multiSelect);
+    if (selectedDns.Any(d => d.Id == 0))
+    {
+        PingDns(Tools.dnsList);
+    }
 
-    AnsiConsole.Write(table);
+    PingDns(selectedDns);
 }
 
-void AddDns()
+void PingDns(List<DNS> selectedDnsList)
 {
-    Console.Clear();
-    var newAddress = AnsiConsole.Ask<string>("[bold green]Add New DNS Address:[/]");
-    if (dnsList.Any(d => d.Address == newAddress))
-    {
-        AnsiConsole.MarkupLine("[yellow]Address Already Exists!");
-        Console.ReadKey();
-        AddDns();
-    }
-    var newTitle = AnsiConsole.Ask<string>("[bold green]Enter Title:[/]");
-    var newDNs = new DNS(nextId, newAddress, newTitle);
-    dnsList.Add(newDNs);
-    Tools.SaveToFile(newDNs);
-    AnsiConsole.MarkupLine("[yellow]DNS Added Successfully[/]");
+    Main();
 }
