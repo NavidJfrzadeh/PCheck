@@ -4,33 +4,55 @@ namespace PCheck;
 
 public static class Tools
 {
-    private static readonly string _path = "dnsList.txt";
+    private static readonly string _dnsPath = "dnsList.txt";
     public static List<DNS> dnsList = new List<DNS>();
-    public static int nextId = dnsList.Any() ? dnsList.Max(d => d.Id) + 1 : 1;
 
-    public static void SaveToFile(DNS newDns)
+    private static readonly string _domainPath = "domains.txt";
+    public static List<Domain> Domains = new List<Domain>();
+
+    public static void SaveDns(DNS newDns)
     {
-        var data = JsonSerializer.Serialize(newDns);
-        File.AppendAllText(_path, data + "\n");
+        var json = JsonSerializer.Serialize(newDns);
+        File.AppendAllText(_dnsPath, json + "\n");
+    }
+
+    public static void SaveDomain(Domain newDomain)
+    {
+        var json = JsonSerializer.Serialize(newDomain);
+        File.AppendAllText(_domainPath, json + "\n");
     }
 
     public static void GetAllDns()
     {
         dnsList.Clear();
-
-        var dataList = File.ReadAllLines(_path);
+        var dataList = File.ReadAllLines(_dnsPath);
         foreach (var data in dataList)
         {
             if (string.IsNullOrWhiteSpace(data))
                 continue;
-            dnsList.Add(JsonSerializer.Deserialize<DNS>(data) ?? throw new Exception("DNS File is not Correct!"));
+            dnsList.Add(JsonSerializer.Deserialize<DNS>(data) ?? throw new Exception("DNS file is not correct!"));
+        }
+    }
+
+    public static void GetAllDomains()
+    {
+        Domains.Clear();
+        var dataList = File.ReadAllLines(_domainPath);
+        foreach (var data in dataList)
+        {
+            if (string.IsNullOrWhiteSpace(data))
+                continue;
+            Domains.Add(JsonSerializer.Deserialize<Domain>(data) ?? throw new Exception("Domain file is not correct"));
         }
     }
 
     public static void CheckFileExist()
     {
-        if (!File.Exists(_path))
-            File.Create(_path);
+        if (!File.Exists(_dnsPath))
+            File.Create(_dnsPath);
+
+        if (!File.Exists(_domainPath))
+            File.Create(_domainPath);
 
         return;
     }
