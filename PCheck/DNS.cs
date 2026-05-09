@@ -9,6 +9,8 @@ public class DNS(string address, string title)
     {
         if (Title == "0")
             return $"[bold green]Select All[/]";
+        if (Title == "1")
+            return $"[bold green]Return[/]";
 
         return $"[green]Title:[/] {Title} | [green]Address =>[/] {Address}";
     }

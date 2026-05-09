@@ -108,12 +108,17 @@ void ShowAllDns()
     var tempList = new List<DNS>(Tools.dnsList);
     var selectAllOption = new DNS("", "0");
     tempList.Insert(0, selectAllOption);
+    var backOption = new DNS("", "1");
+    tempList.Insert(0, backOption);
 
     var multiSelect = new MultiSelectionPrompt<DNS>()
         .MoreChoicesText("[grey](move ↑/↓)[/]")
         .InstructionsText("[grey](select:[green][[Space]][/] | Confirm:[green][[Enter]][/] | Select All:[green][[Ctrl+A]][/])[/]")
         .AddChoices(tempList);
     var selectedDns = AnsiConsole.Prompt(multiSelect);
+
+    if (selectedDns.Any(d => d.Title == "1"))
+        Main();
 
     if (selectedDns.Any(d => d.Title == "0"))
     {
@@ -127,52 +132,54 @@ void ShowAllDns()
 
 void LookupDns(List<DNS> selectedDnsList)
 {
-    var results = new List<Result>();
-
-    foreach (var dns in selectedDnsList)
-    {
-        var nameServer = new NameServer(IPAddress.Parse(dns.Address));
-        var lookUp = new LookupClient(nameServer);
-
-        var tempDomains = new List<string>();
-
-        foreach (var domain in Tools.Domains)
+    List<Result> results = [];
+    AnsiConsole.Status().StartAsync("Requesting...",
+        async ctx =>
         {
-
-            try
+            ctx.Spinner(Spinner.Known.Dots);
+            ctx.SpinnerStyle(Style.Parse("green"));
+            foreach (var dns in selectedDnsList)
             {
-                var result = lookUp.Query(domain.Name, QueryType.A);
+                var nameServer = new NameServer(IPAddress.Parse(dns.Address));
+                var lookUp = new LookupClient(nameServer);
+                List<string> tempDomains = [];
 
-                var aRecord = result.Answers.ARecords().ToList();
-                if (aRecord.Any())
+                foreach (var domain in Tools.Domains)
                 {
-                    //AnsiConsole.MarkupLine($"[green]Founded Ips:[/] {string.Join("\n", aRecord.Select(r => r.Address))}");
-                    tempDomains.Add(domain.Name);
+                    try
+                    {
+                        var result = lookUp.Query(domain.Name, QueryType.A);
+                        var aRecord = result.Answers.ARecords().ToList();
+                        if (aRecord.Count != 0)
+                            tempDomains.Add(domain.Name);
+                    }
+                    catch (Exception)
+                    {
+
+                    }
                 }
-            }
-            catch (Exception)
-            {
 
+                results.Add(new Result(dns.Address, tempDomains));
             }
-        }
-
-        results.Add(new Result(dns.Address, tempDomains));
-    }
+            ctx.Status = "[yellow]operation completed successfully[/]";
+            await Task.Delay(5000);
+        });
 
     //Show Result in Table
     Console.WriteLine();
     var table = new Table();
     table.Border = TableBorder.Rounded;
-    table.Title = new TableTitle("[green]Lookup Results:[/]");
+    table.Title = new TableTitle("[bold green]Lookup Results:[/]");
 
     table.AddColumns("[cyan]DNS Address[/]", "[cyan]Domain[/]");
     foreach (var result in results)
     {
-        var domainStr = string.Join("\n", result.Domains ?? new List<string>() { "[red]Inaccessable[/]" });
+        string domainStr = result.Domains.Count != 0 ? string.Join("\n", result.Domains) : "[red]Inaccessable[/]";
         table.AddRow(result.DnsAddress, domainStr + "\n");
     }
+    Console.Clear();
     AnsiConsole.Write(table);
     Console.ReadKey();
 }
 
-public record Result(string DnsAddress, List<string>? Domains);
+public record Result(string DnsAddress, List<string> Domains);
