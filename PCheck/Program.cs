@@ -1,14 +1,17 @@
-﻿using PCheck;
+﻿using DnsClient;
+using PCheck;
 using Spectre.Console;
+using System.Net;
 
 try
 {
     Tools.CheckFileExist();
     Main();
 }
-catch (Exception)
+catch (Exception e)
 {
-    AnsiConsole.MarkupLine("[bold red]Something went wrong press any key to return menu...");
+    var exception = e.Message;
+    Console.WriteLine("Something Went Wrong Returing to menu...");
     Console.ReadKey();
     Main();
 }
@@ -27,6 +30,7 @@ void Main()
             "2.Show All DNS",
             "3.Edit DNS",
             "4.Add Domain",
+            "0.Exit",
         ]));
 
     switch (choice[0])
@@ -35,6 +39,7 @@ void Main()
         case '2': ShowAllDns(); break;
         case '3': EditDns(); break;
         case '4': AddDomain(); break;
+        case '0': Environment.Exit(0); break;
     }
 }
 
@@ -112,13 +117,62 @@ void ShowAllDns()
 
     if (selectedDns.Any(d => d.Title == "0"))
     {
-        PingDns(Tools.dnsList);
+        LookupDns(Tools.dnsList);
+        Main();
     }
 
-    PingDns(selectedDns);
-}
-
-void PingDns(List<DNS> selectedDnsList)
-{
+    LookupDns(selectedDns);
     Main();
 }
+
+void LookupDns(List<DNS> selectedDnsList)
+{
+    var results = new List<Result>();
+
+    foreach (var dns in selectedDnsList)
+    {
+        var nameServer = new NameServer(IPAddress.Parse(dns.Address));
+        var lookUp = new LookupClient(nameServer);
+
+        var tempDomains = new List<string>();
+
+        foreach (var domain in Tools.Domains)
+        {
+
+            try
+            {
+                var result = lookUp.Query(domain.Name, QueryType.A);
+
+                var aRecord = result.Answers.ARecords().ToList();
+                if (aRecord.Any())
+                {
+                    //AnsiConsole.MarkupLine($"[green]Founded Ips:[/] {string.Join("\n", aRecord.Select(r => r.Address))}");
+                    tempDomains.Add(domain.Name);
+                }
+            }
+            catch (Exception)
+            {
+
+            }
+        }
+
+        results.Add(new Result(dns.Address, tempDomains));
+    }
+
+    //Show Result in Table
+    Console.WriteLine();
+    var table = new Table();
+    table.Border = TableBorder.Rounded;
+    table.Title = new TableTitle("[green]Lookup Results:[/]");
+
+    table.AddColumns("[cyan]DNS Address[/]", "[cyan]Domain[/]");
+    foreach (var result in results)
+    {
+        var domainStr = string.Join("\n", result.Domains ?? new List<string>() { "[red]Inaccessable[/]" });
+        table.AddRow(result.DnsAddress, domainStr + "\n");
+    }
+    AnsiConsole.Write(table);
+    Console.ReadKey();
+}
+
+public record Result(string DnsAddress, List<string>? Domains);
